@@ -1,0 +1,102 @@
+services:
+  # Ollama is hosted separately; enable this service to run it in this stack.
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   restart: unless-stopped
+  #   environment:
+  #     OLLAMA_HOST: 0.0.0.0:11434
+  #   ports:
+  #     - "127.0.0.1:11434:11434"
+  #   volumes:
+  #     - ./.ollama-models:/root/.ollama
+  #   healthcheck:
+  #     test: ["CMD", "ollama", "list"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 30s
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6333:6333"
+    volumes:
+      - ./.qdrant-storage:/qdrant/storage
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile.dev
+    user: node
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://server-ip:11434}
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-qwen3:4b}
+      OLLAMA_BRAIN_MODEL: ${OLLAMA_BRAIN_MODEL:-qwen3:4b}
+      OLLAMA_REPRESENTATIVE_MODEL: ${OLLAMA_REPRESENTATIVE_MODEL:-qwen3:4b}
+      OLLAMA_DATABASE_MODEL: ${OLLAMA_DATABASE_MODEL:-qwen3:4b}
+      OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
+      OLLAMA_REQUEST_TIMEOUT_MS: ${OLLAMA_REQUEST_TIMEOUT_MS:-300000}
+      ADMIN_USERNAMES: ${ADMIN_USERNAMES:?Set ADMIN_USERNAMES in the project .env file}
+      QDRANT_URL: http://qdrant:6333
+      DB_HOST: postgres-service
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-vibe_ai}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-vibe_ai_local}
+      DB_NAME: ${POSTGRES_DB:-vibe_ai}
+      VESPROFILE_URL: http://server-ip:8001
+      SMARTHR_URL: http://server-ip:8007
+      SMARTHR_TOKEN: ${SMARTHR_TOKEN:?Set SMARTHR_TOKEN in the project .env file}
+      SMARTHR_SECURITY_TIMESTAMP: ${SMARTHR_SECURITY_TIMESTAMP:-}
+      JWT_SECRET: ${JWT_SECRET:-}
+      JWT_EXPIRES_IN_SECONDS: ${JWT_EXPIRES_IN_SECONDS:-86400}
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+    command: sh -c "pnpm db:migrate && pnpm start:dev"
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./api:/app
+      - /app/node_modules
+    depends_on:
+      qdrant:
+        condition: service_started
+      postgres-service:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: http://localhost:3000/graphql
+      VITE_GRAPHQL_WS_URL: ws://localhost:3000/graphql
+    command: pnpm dev --host 0.0.0.0
+    ports:
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - ./web:/app
+      - /app/node_modules
+    depends_on:
+      api:
+        condition: service_started
+
+  postgres-service:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vibe_ai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vibe_ai_local}
+      POSTGRES_DB: ${POSTGRES_DB:-vibe_ai}
+    volumes:
+      - ./.data/postgres:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

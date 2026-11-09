@@ -1,0 +1,110 @@
+type Query {
+  health: String!
+  currentUser: CurrentUser!
+  knowledgeEntries: [KnowledgeEntry!]!
+  knowledgeTags: [KnowledgeTag!]!
+  platformSettings: PlatformSettings!
+  adminUsers: [AdminUser!]!
+  chatConversations: [ChatConversation!]!
+  chatMessages(conversationId: ID!): [ChatMessage!]!
+}
+
+type Mutation {
+  login(username: String!, password: String!): AuthPayload!
+  createKnowledgeEntry(input: CreateKnowledgeEntryInput!): KnowledgeEntry!
+  updatePlatformSettings(input: UpdatePlatformSettingsInput!): PlatformSettings!
+  setAdministratorRole(username: String!, isAdmin: Boolean!): [AdminUser!]!
+  createChatConversation: ChatConversation!
+  sendChatMessage(input: SendChatMessageInput!): ChatMessage!
+}
+
+type Subscription {
+  chatUpdate: ChatUpdate!
+}
+
+type ChatConversation {
+  id: ID!
+  title: String!
+  createdAt: String!
+  updatedAt: String!
+}
+
+type ChatMessage {
+  id: ID!
+  conversationId: ID!
+  role: String!
+  content: String!
+  status: String!
+  createdAt: String!
+}
+
+type ChatUpdate {
+  id: ID!
+  conversationId: ID!
+  role: String!
+  content: String!
+  delta: String!
+  status: String!
+  createdAt: String!
+}
+
+input SendChatMessageInput {
+  conversationId: ID
+  content: String!
+}
+
+type AuthPayload {
+  accessToken: String!
+  user: AuthUser!
+}
+
+type AuthUser {
+  id: String!
+  empid: String!
+  username: String!
+  nickname: String
+  first_name: String
+  last_name: String
+  email: String
+}
+
+type CurrentUser {
+  username: String!
+  isAdmin: Boolean!
+}
+
+type PlatformSettings {
+  brainInstruction: String!
+  representativeInstruction: String!
+}
+
+type AdminUser {
+  username: String!
+  role: String!
+  createdAt: String!
+}
+
+input UpdatePlatformSettingsInput {
+  brainInstruction: String!
+  representativeInstruction: String!
+}
+
+type KnowledgeEntry {
+  id: ID!
+  title: String!
+  content: String!
+  tags: [KnowledgeTag!]!
+  createdAt: String!
+  updatedAt: String!
+}
+
+type KnowledgeTag {
+  id: ID!
+  name: String!
+}
+
+input CreateKnowledgeEntryInput {
+  title: String!
+  content: String!
+  tags: [String!]!
+}

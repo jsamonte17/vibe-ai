@@ -1,0 +1,12 @@
+.ollama-models/
+.llama-models/
+.qdrant-storage/
+.data/
+.env
+api/node_modules/
+api/dist/
+api/coverage/
+api/.env
+web/node_modules/
+web/dist/
+web/.env
